@@ -1,0 +1,262 @@
+{
+  "name": "Daily AI Digest",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 10
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -1344,
+        176
+      ],
+      "id": "21dde816-c276-4ab7-9817-8226bf17be76",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "returnAll": true,
+        "filters": {
+          "q": "=from:(nlpnews@substack.com OR lastweekinai+podcast@substack.com OR theneuron@newsletter.theneurondaily.com OR superhuman@mail.joinsuperhuman.ai OR superintel@mail.beehiiv.com OR bytebytego@substack.com OR aivalley@mail.beehiiv.com) newer_than:1d (label:inbox OR label:updates OR label:promotions)"
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        -1136,
+        176
+      ],
+      "id": "144269a0-12dd-4a8e-b3d2-d471d0534059",
+      "name": "Get many messages",
+      "webhookId": "7d0ba6a4-6a1d-45d3-85e1-351ff5427883",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "Jyw26w1OJhYagk71",
+          "name": "Gmail OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const emails = items.map(item => {\n  const d = item.json;\n  return `FROM: ${d.From}\\nSUBJECT: ${d.Subject}\\nLINK: https://mail.google.com/mail/u/0/#inbox/${d.id}\\nSNIPPET: ${d.snippet}\\n---`;\n}).join('\\n');\n\nconst prompt = \"Here are AI newsletters I received today. For each one, write 2-3 sentences summarizing the key ideas. Include the Gmail link. Keep the whole digest under 1500 characters for WhatsApp readability.\\n\\n\" + emails;\n\nconst body = {\n  contents: [\n    {\n      role: \"user\",\n      parts: [{\"text\": prompt}]\n    }\n  ]\n};\n\nreturn [{ json: { requestBody: JSON.stringify(body), count: items.length } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -912,
+        176
+      ],
+      "id": "e76cc30b-9996-4b3d-a3e8-c37a13448607",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=YOUR_GEMINI_API_KEY",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.requestBody }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -704,
+        176
+      ],
+      "id": "bee0b593-6946-4c85-af0d-4d7ee969a990",
+      "name": "HTTP Request",
+      "retryOnFail": true,
+      "waitBetweenTries": 5
+    },
+    {
+      "parameters": {
+        "from": "+14155238886",
+        "to": "+918095008686",
+        "toWhatsapp": true,
+        "message": "= {{ $json.digest }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "3e9e5bb3-3588-4e8a-b24e-a36542285e57",
+      "name": "Send an SMS/MMS/WhatsApp message",
+      "credentials": {
+        "twilioApi": {
+          "id": "ySXvkmcDmLPOCwZO",
+          "name": "Twilio account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "4eb72fa8-d4a9-43fa-baa4-702b0ecf321a",
+              "leftValue": "={{ $json.count }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -288,
+        176
+      ],
+      "id": "5fe5d604-4d36-40ba-8cca-9a26b26c74ca",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "from": "=+14155238886",
+        "to": "+918095008686",
+        "toWhatsapp": true,
+        "message": "No Newsletters today",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [
+        16,
+        288
+      ],
+      "id": "e7cc39a9-48c5-4b46-ac2f-ce8c2e30f0ac",
+      "name": "Send an SMS/MMS/WhatsApp message1",
+      "credentials": {
+        "twilioApi": {
+          "id": "ySXvkmcDmLPOCwZO",
+          "name": "Twilio account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const text = items[0].json.candidates[0].content.parts[0].text;\nreturn [{ json: { digest: text, count: 1 } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -496,
+        176
+      ],
+      "id": "2d0e3644-ff17-48a3-8f8c-90601d03639a",
+      "name": "Code in JavaScript1"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get many messages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get many messages": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Send an SMS/MMS/WhatsApp message",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send an SMS/MMS/WhatsApp message1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript1": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "3c1b88fe-a988-4002-8e8c-60420825bb13",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "61a07248391f108ccd2f72790c9b5b7e2e9d21cfbd95bb7a80835c33e93dc387"
+  },
+  "nodeGroups": [],
+  "id": "Ci8R1L162DZmf0Ty",
+  "tags": []
+}
